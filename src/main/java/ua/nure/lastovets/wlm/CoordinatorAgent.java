@@ -20,6 +20,7 @@ public class CoordinatorAgent extends Agent {
 
         registerInDF();
 
+        // Запускаємо поведінку, яка чекає нові фотографії
         addBehaviour(new TaskReceiverBehaviour());
     }
 
@@ -30,39 +31,68 @@ public class CoordinatorAgent extends Agent {
         sd.setType("photo-coordinator");
         sd.setName("WLM-Coordinator");
         dfd.addServices(sd);
+
         try {
             DFService.register(this, dfd);
+            System.out.println("📋 Coordinator зареєстровано в DF (Yellow Pages)");
         } catch (FIPAException e) {
             e.printStackTrace();
         }
     }
 
+    /** Поведінка, яка отримує нові задачі (фотографії) */
     private class TaskReceiverBehaviour extends CyclicBehaviour {
         public void action() {
             ACLMessage msg = receive();
             if (msg != null && msg.getPerformative() == ACLMessage.REQUEST) {
-                System.out.println("📸 Отримана нова фотографія: " + msg.getContent());
-                addBehaviour(new PhotoProcessingContractNet(myAgent, msg));
+                System.out.println("📸 Coordinator отримав нову фотографію: " + msg.getContent());
+                addBehaviour(new TechValidationContractNet(myAgent, msg));
             } else {
                 block();
             }
         }
     }
 
-    private class PhotoProcessingContractNet extends ContractNetInitiator {
-        public PhotoProcessingContractNet(Agent a, ACLMessage cfp) {
+    /** Contract Net для технічної перевірки з динамічним пошуком агентів через DF */
+    private class TechValidationContractNet extends ContractNetInitiator {
+
+        public TechValidationContractNet(Agent a, ACLMessage cfp) {
             super(a, cfp);
         }
 
+        /** Підготовка CFP з пошуком всіх TechValidatorAgent через DF */
         protected Vector<ACLMessage> prepareCfps(ACLMessage cfp) {
-            Vector<ACLMessage> v = new Vector<>();
-            // В реальному проєкті шукати через DF
-            ACLMessage cfpCopy = (ACLMessage) cfp.clone();
-            cfpCopy.addReceiver(new AID("tech-validator-1", AID.ISLOCALNAME));
-            cfpCopy.addReceiver(new AID("tech-validator-2", AID.ISLOCALNAME));
-            cfpCopy.addReceiver(new AID("tech-validator-3", AID.ISLOCALNAME));
-            v.add(cfpCopy);
-            return v;
+            Vector<ACLMessage> cfps = new Vector<>();
+
+            // Пошук агентів через DF
+            DFAgentDescription template = new DFAgentDescription();
+            ServiceDescription sd = new ServiceDescription();
+            sd.setType("tech-validator");
+            template.addServices(sd);
+
+            try {
+                DFAgentDescription[] result = DFService.search(myAgent, template);
+
+                if (result.length == 0) {
+                    System.out.println("⚠️ Не знайдено TechValidatorAgent!");
+                    return cfps;
+                }
+
+                ACLMessage cfpTemplate = (ACLMessage) cfp.clone();
+                cfpTemplate.setPerformative(ACLMessage.CFP);
+                cfpTemplate.setConversationId("tech-check-" + System.currentTimeMillis());
+                cfpTemplate.setReplyByDate(new Date(System.currentTimeMillis() + 15000));
+
+                for (DFAgentDescription dfd : result) {
+                    ACLMessage newCfp = (ACLMessage) cfpTemplate.clone();
+                    newCfp.addReceiver(dfd.getName());
+                    cfps.add(newCfp);
+                    System.out.println("📤 Надіслано CFP до: " + dfd.getName().getLocalName());
+                }
+            } catch (FIPAException e) {
+                e.printStackTrace();
+            }
+            return cfps;
         }
 
         protected void handlePropose(ACLMessage propose, Vector acceptances) {
@@ -73,13 +103,20 @@ public class CoordinatorAgent extends Agent {
         }
 
         protected void handleInform(ACLMessage inform) {
-            System.out.println("✅ Технічна перевірка пройдена: " + inform.getContent());
-            // Тут можна запустити наступний етап (TopicValidator)
+            System.out.println("✅ Технічна перевірка пройдена від " + inform.getSender().getLocalName() 
+                    + ": " + inform.getContent());
+            // Тут можна запустити наступний етап (тематична перевірка)
+        }
+
+        protected void handleRefuse(ACLMessage refuse) {
+            System.out.println("❌ Відмовлено: " + refuse.getSender().getLocalName());
         }
     }
 
     protected void takeDown() {
-        try { DFService.deregister(this); } catch (Exception ignored) {}
-        System.out.println("🛑 CoordinatorAgent завершено.");
+        try {
+            DFService.deregister(this);
+        } catch (Exception ignored) {}
+        System.out.println("🛑 CoordinatorAgent " + getAID().getLocalName() + " завершено.");
     }
 }
