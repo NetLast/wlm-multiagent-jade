@@ -15,7 +15,7 @@
     </properties>
 
     <dependencies>
-        <!-- JADE локально -->
+        <!-- JADE - system scope -->
         <dependency>
             <groupId>com.tilab.jade</groupId>
             <artifactId>jade</artifactId>
