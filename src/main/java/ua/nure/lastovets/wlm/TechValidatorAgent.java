@@ -7,6 +7,7 @@ import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import jade.proto.ContractNetResponder;
 
 import javax.imageio.ImageIO;
@@ -35,7 +36,7 @@ public class TechValidatorAgent extends Agent {
 
     private class TechValidationResponder extends ContractNetResponder {
         public TechValidationResponder() {
-            super(myAgent, null);
+            super(TechValidatorAgent.this, MessageTemplate.MatchPerformative(ACLMessage.CFP));
         }
 
         protected ACLMessage handleCfp(ACLMessage cfp) {

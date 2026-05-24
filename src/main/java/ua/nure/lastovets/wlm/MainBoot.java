@@ -37,6 +37,26 @@ public class MainBoot {
                     null).start();
             }
 
+            // Запуск JuryDispatcherAgent
+            mainContainer.createNewAgent(
+                "jury-dispatcher",
+                "ua.nure.lastovets.wlm.JuryDispatcherAgent",
+                null).start();
+
+            // Запуск JuryMemberAgent
+            for (String name : new String[]{"jury-member-1", "jury-member-2"}) {
+                mainContainer.createNewAgent(
+                    name,
+                    "ua.nure.lastovets.wlm.JuryMemberAgent",
+                    null).start();
+            }
+
+            // Запуск NotificationAgent
+            mainContainer.createNewAgent(
+                "notifier",
+                "ua.nure.lastovets.wlm.NotificationAgent",
+                null).start();
+
             System.out.println("🚀 Мультиагентна система WLM запущена!");
 
         } catch (Exception e) {
