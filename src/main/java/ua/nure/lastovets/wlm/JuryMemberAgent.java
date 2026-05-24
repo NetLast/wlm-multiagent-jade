@@ -6,10 +6,12 @@ import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import jade.proto.ContractNetResponder;
 
 public class JuryMemberAgent extends Agent {
 
+    @Override
     protected void setup() {
         System.out.println("👨‍⚖️ JuryMemberAgent " + getAID().getLocalName() + " запущено.");
         registerInDF();
@@ -20,18 +22,31 @@ public class JuryMemberAgent extends Agent {
     private void registerInDF() {
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
+
         ServiceDescription sd = new ServiceDescription();
         sd.setType("jury-member");
         sd.setName("Jury-Evaluator");
+
         dfd.addServices(sd);
-        try { DFService.register(this, dfd); } catch (FIPAException e) { e.printStackTrace(); }
+
+        try {
+            DFService.register(this, dfd);
+        } catch (FIPAException e) {
+            e.printStackTrace();
+        }
     }
 
+    /**
+     * Contract Net responder behaviour
+     */
     private class JuryEvaluationResponder extends ContractNetResponder {
+
         public JuryEvaluationResponder() {
-            super(myAgent, null);
+            super(JuryMemberAgent.this,
+                    MessageTemplate.MatchPerformative(ACLMessage.CFP));
         }
 
+        @Override
         protected ACLMessage handleCfp(ACLMessage cfp) {
             ACLMessage propose = cfp.createReply();
             propose.setPerformative(ACLMessage.PROPOSE);
@@ -39,22 +54,37 @@ public class JuryMemberAgent extends Agent {
             return propose;
         }
 
-        protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) {
+        @Override
+        protected ACLMessage handleAcceptProposal(ACLMessage cfp,
+                                                   ACLMessage propose,
+                                                   ACLMessage accept) {
+
             ACLMessage inform = accept.createReply();
+
             try {
                 Thread.sleep(2500); // імітація оцінювання
-                int score = (int) (Math.random() * 40) + 60; // оцінка 60-100
+
+                int score = (int) (Math.random() * 40) + 60; // 60–100
+
                 inform.setPerformative(ACLMessage.INFORM);
                 inform.setContent("EVALUATED|score=" + score + "|photo=" + cfp.getContent());
-                System.out.println("⭐ " + getAID().getLocalName() + " поставив оцінку: " + score);
+
+                System.out.println("⭐ " + getAID().getLocalName()
+                        + " поставив оцінку: " + score);
+
             } catch (Exception e) {
                 inform.setPerformative(ACLMessage.FAILURE);
             }
+
             return inform;
         }
     }
 
+    @Override
     protected void takeDown() {
-        try { DFService.deregister(this); } catch (Exception ignored) {}
+        try {
+            DFService.deregister(this);
+        } catch (Exception ignored) {
+        }
     }
 }
