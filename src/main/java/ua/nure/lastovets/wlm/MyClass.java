@@ -1,1 +1,1 @@
-package ua.nure.lastovets.wlm
+package ua.nure.lastovets.wlm;
